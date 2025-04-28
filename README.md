@@ -46,7 +46,7 @@ This app evaluates resumes for **ATS compliance**, **data completeness**, **lang
 
 3. **Run the Streamlit app**
    ```bash
-   streamlit run app.py
+   streamlit run main.py
    ```
 
 ---
