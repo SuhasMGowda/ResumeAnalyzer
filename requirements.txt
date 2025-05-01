@@ -1,6 +1,10 @@
 streamlit
-plotly
-pdfplumber
 docx2txt
-fpdf
+pdfplumber
 matplotlib
+plotly
+fpdf
+keybert
+nltk
+scikit-learn
+sentence-transformers
