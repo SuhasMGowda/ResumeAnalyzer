@@ -1,3 +1,7 @@
+import types
+import torch
+torch.classes.__path__ = types.SimpleNamespace(_path=[])
+
 import streamlit as st
 import docx2txt
 import pdfplumber
@@ -6,8 +10,6 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from fpdf import FPDF
 from keybert import KeyBERT
-
-# --- Helper Functions ---
 
 def extract_text_from_pdf(file):
     text = ""
@@ -44,15 +46,15 @@ def analyze_resume(text, file_size):
         "Lexical Analysis": {
             "Personal Pronouns": "✅" if not re.search(r'\b(I|me|my|mine)\b', text, re.I) else "❌",
             "Numericized Data": "✅" if re.search(r'\d+%', text) else "❌",
-            "Vocabulary Level": "✅",  
-            "Reading Level": "✅",    
-            "Common Words": "✅",     
+            "Vocabulary Level": "✅",
+            "Reading Level": "✅",
+            "Common Words": "✅",
         },
         "Semantic Analysis": {
             "Measurable Achievements": "✅" if re.search(r'\d+', text) else "❌",
             "Soft Skills": "✅" if re.search(r'(teamwork|communication|leadership)', text, re.I) else "❌",
             "Hard Skills": "✅" if re.search(r'(Python|Java|SQL|Machine Learning)', text, re.I) else "❌",
-            "Skill Efficiency Ratio": "✅", 
+            "Skill Efficiency Ratio": "✅",
         }
     }
     return analysis
@@ -111,42 +113,49 @@ def generate_smart_suggestions(text, job_desc=None):
         "suggestions": suggestions
     }
 
-# --- Streamlit App ---
+st.set_page_config(page_title="Cloud-ml Project", layout="wide")
+st.title("📝Resume Analyzer with Smart Suggestions")
 
-st.set_page_config(page_title="Resume Checker", layout="wide")
-st.title("📝 Resume Analizer with Smart Suggestions")
-
-uploaded_file = st.file_uploader("Upload your Resume", type=["pdf", "docx"])
+uploaded_files = st.file_uploader("Upload Resumes (PDF or DOCX)", type=["pdf", "docx"], accept_multiple_files=True)
 job_description = st.text_area("Paste the Job Description (Optional)")
 
-if uploaded_file:
-    file_size = get_file_size(uploaded_file)
-    uploaded_file.seek(0)
+if uploaded_files:
+    results = []
 
-    if uploaded_file.name.endswith('.pdf'):
-        text = extract_text_from_pdf(uploaded_file)
-    else:
-        text = extract_text_from_docx(uploaded_file)
+    for uploaded_file in uploaded_files:
+        uploaded_file.seek(0)
+        file_size = get_file_size(uploaded_file)
+        uploaded_file.seek(0)
 
-    st.subheader("📄 Uploaded Resume File")
-    st.write(f"**File Name:** {uploaded_file.name}")
+        if uploaded_file.name.endswith('.pdf'):
+            text = extract_text_from_pdf(uploaded_file)
+        else:
+            text = extract_text_from_docx(uploaded_file)
 
-    analysis = analyze_resume(text, file_size)
-    overall_score = calculate_overall_score(analysis)
-    sec_scores = section_scores(analysis)
+        # Basic resume detection
+        if not re.search(r'(experience|education|skills|projects|resume|curriculum vitae)', text, re.I):
+            st.warning(f"⚠️ The file '{uploaded_file.name}' may not be a resume. Please verify.")
+            continue
 
-    st.subheader("📊 Overall Resume Score")
-    fig_gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=overall_score,
-        gauge={'axis': {'range': [0, 100]},
-               'bar': {'color': "#4CAF50"},
-               'steps': [{'range': [0, 50], 'color': '#ff4b4b'},
-                         {'range': [50, 75], 'color': '#ffa534'},
-                         {'range': [75, 100], 'color': '#4CAF50'}]}
-    ))
-    fig_gauge.update_layout(height=250, margin=dict(l=0, r=0, t=0, b=0))
-    st.plotly_chart(fig_gauge, use_container_width=True)
+        analysis = analyze_resume(text, file_size)
+        score = calculate_overall_score(analysis)
+
+        results.append({
+            "file_name": uploaded_file.name,
+            "text": text,
+            "analysis": analysis,
+            "score": score
+        })
+
+    results.sort(key=lambda x: x['score'], reverse=True)
+    best_resume = results[0]
+
+    st.subheader("📊 Resume Score Comparison")
+    st.table({res["file_name"]: res["score"] for res in results})
+
+    st.subheader(f"🏆 Best Resume: {best_resume['file_name']} (Score: {best_resume['score']})")
+
+    sec_scores = section_scores(best_resume['analysis'])
 
     st.subheader("📈 Section-wise Scores")
     fig_bar = go.Figure(go.Bar(
@@ -159,7 +168,7 @@ if uploaded_file:
     st.plotly_chart(fig_bar, use_container_width=True)
 
     st.subheader("🧩 Detailed Analysis")
-    for main_section, checks in analysis.items():
+    for main_section, checks in best_resume['analysis'].items():
         st.markdown(f"### {main_section}")
         for item, result in checks.items():
             if result == "✅":
@@ -169,19 +178,19 @@ if uploaded_file:
 
     st.subheader("📥 Download Resume Analysis Report")
     if st.button("Generate Report PDF"):
-        pdf = generate_pdf_report(analysis, overall_score)
+        pdf = generate_pdf_report(best_resume['analysis'], best_resume['score'])
         st.download_button(label="Download PDF",
                            data=pdf,
-                           file_name="resume_analysis_report.pdf",
+                           file_name="best_resume_analysis_report.pdf",
                            mime='application/pdf')
 
     st.subheader("⚡ Areas To Improve")
-    for section, checks in analysis.items():
+    for section, checks in best_resume['analysis'].items():
         for item, result in checks.items():
             if result == "❌":
                 st.warning(f"⚡ Improve: **{item}**")
 
     st.subheader("💡 Smart Suggestions")
-    smart = generate_smart_suggestions(text, job_description)
+    smart = generate_smart_suggestions(best_resume['text'], job_description)
     for sug in smart["suggestions"]:
         st.info(sug)
