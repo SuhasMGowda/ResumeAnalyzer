@@ -114,7 +114,7 @@ def generate_smart_suggestions(text, job_desc=None):
 # --- Streamlit App ---
 
 st.set_page_config(page_title="Resume Checker", layout="wide")
-st.title("📝 Professional Resume Checker with Smart Suggestions")
+st.title("📝 Resume Analizer with Smart Suggestions")
 
 uploaded_file = st.file_uploader("Upload your Resume", type=["pdf", "docx"])
 job_description = st.text_area("Paste the Job Description (Optional)")
